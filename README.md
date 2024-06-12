@@ -33,5 +33,5 @@ The app should now be accessible by visiting http://localhost:5000 in your web b
 
 ## License
 
-[MIT](https://choosealicense.com/licenses/mit/)
+[Apache 2.0](https://choosealicense.com/licenses/apache-2.0)
 
