@@ -47,7 +47,9 @@ class User(BaseModel, UserMixin):
     night_mode = db.Column(db.Boolean(), nullable=False, default=True)
 
     rooms = db.relationship('UserRoom', back_populates='user')
-    notifications = db.relationship('Notification', back_populates='receiver', cascade="all, delete-orphan")
+
+    sent_notifications = db.relationship('Notification', foreign_keys='Notification.sender_id', backref='sender', lazy=True, cascade="all, delete-orphan")
+    received_notifications = db.relationship('Notification', foreign_keys='Notification.receiver_id', backref='receiver', lazy=True, cascade="all, delete-orphan")
 
     """
     >>> files = db.relationship('File', backref='user', lazy=True, passive_deletes=True)
@@ -71,26 +73,30 @@ class Notification(BaseModel):
 
     class ALLOWED_TYPES(Enum):
         STANDARD = 'standard'
+        JOIN = 'join'
         CONFIRM = 'confirm'
         WARN = 'warn'
         ERROR = 'error'
 
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
+
     message = db.Column(db.String(255), nullable=False)
     type = db.Column(db.String(50), nullable=False)
 
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    receiver = db.relationship('User', back_populates='notifications')
-
-    def __init__(self, message: str, type: ALLOWED_TYPES, receiver: Any) -> None:
+    def __init__(self, message: str, type: ALLOWED_TYPES, sender: Any, receiver: Any, room: Any) -> None:
         self.message = message
-        self.type = type
-        self.receiver = receiver
+        self.type = type.value
+        self.sender_id = sender.id
+        self.receiver_id = receiver.id
+        self.room_id = room.id
 
     def __repr__(self) -> str:
         """
         Presents a visual representation of the object
         """
-        return prettify(self.__dict__, self.__tablename__)
+        return f"Notification(message={self.message}, sender_id={self.sender_id}, receiver_id={self.receiver_id}, room_id={self.room_id}, type={self.type})"
 
 class Room(BaseModel):
 
@@ -104,6 +110,7 @@ class Room(BaseModel):
     admin = db.relationship('User', uselist=False)
 
     members = db.relationship('UserRoom', back_populates='room')
+    notifications = db.relationship('Notification', backref='room', lazy=True, cascade="all, delete-orphan")
 
     announcements = db.relationship('RoomAnnouncement', backref='room', lazy=True, passive_deletes=True)
     files = db.relationship('File', backref='room', lazy=True, cascade="all, delete-orphan")
