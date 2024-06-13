@@ -83,19 +83,37 @@ def _index() -> str | WerkzeugResponse:
         join_room_form=join_room_form
     )
 
+@index.get("/is_logged_in")
+def is_logged_in():
+    """
+    Returns if there is a current_user (logged_in) or not
+
+    This does this by checking if
+        current_user.__class__.__name__ != 'AnonymousUserMixin'
+
+    a logged in user doesn't use 'AnonymousUserMixin' but rather the database model used for saving User
+    """
+    return jsonify({
+        "status": "success",
+        "logged_in": current_user.__class__.__name__ != 'AnonymousUserMixin'
+    })
+
 @index.get("/notifications")
 def notifications() -> FlaskResponse:
     """
     Returns the current users notifications
     """
-    notifications_query = current_user.notifications[-5:] if len(current_user.notifications) > 5 else current_user.notifications
+    received_notifications_query = current_user.received_notifications[-5:] if len(current_user.received_notifications) > 5 else current_user.received_notifications
+
     notifications: List[Dict[str, str]] = []
 
-    for notification in notifications_query:
+    for notification in received_notifications_query:
+
         notifications.append({
             "id": notification.id,
             "message": notification.message,
-            "type": notification.type
+            "type": notification.type,
+            "roomId": notification.room_id
         })
 
     return jsonify(notifications)
