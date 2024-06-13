@@ -7,6 +7,8 @@
 <!-- {# scripts #} -->
 {% block component_script -%}
     <script src="{{ url_for( 'room.static' , filename='room.js') }}" type="module"></script>
+    <script src="{{ url_for( 'room.static' , filename='info_toggle.js') }}" type="module"></script>
+    <script src="{{ url_for( 'room.static' , filename='portrait_chat_toggle.js') }}" type="module"></script>
 {%- endblock component_script %}
 
 <!-- {# main #} -->
@@ -31,7 +33,7 @@
                 </ul>
             </div>
 
-            <div id="main-content-rooms-chat">
+            <div id="main-content-rooms-chat" data-code="{{ room.code }}">
                 <div id="main-content-rooms-chat-top">
                     <div id="main-content-rooms-chat-top-left">
                         <p id="main-content-rooms-chat-top-left-title">{{ room.title }}</p>
@@ -40,18 +42,25 @@
                     <div id="main-content-rooms-chat-top-right">
                         <button id="main-content-rooms-chat-top-right-leave">Leave</button>
 
-                        <p id="main-content-rooms-chat-top-right-call_toggle">Call</p>
+                        <svg class="icon" id="people" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M8.49578666,8 C9.32421378,8 9.99578666,8.67157288 9.99578666,9.5 L9.99500413,10.2483651 C10.0978758,12.0849239 8.68333886,13.0008101 6.06019361,13.0008101 C3.44551926,13.0008101 2,12.0969079 2,10.2745741 L2,9.5 C2,8.67157288 2.67157288,8 3.5,8 L8.49578666,8 Z M12.4963886,8 C13.3248157,8 13.9963886,8.67157288 13.9963886,9.5 L13.9956373,10.0265728 C14.0860521,11.6740351 12.8361745,12.5 10.5515945,12.5 C10.2414712,12.5 9.94992668,12.4848914 9.67765519,12.4546597 C10.2143644,11.9590361 10.5014697,11.2864584 10.5004904,10.4365689 L10.4942216,10.2204023 L10.4957867,9.5 C10.4957867,8.90242987 10.2337129,8.36607035 9.81823197,7.99958804 L12.4963886,8 Z M6,2 C7.38093559,2 8.50040506,3.11946948 8.50040506,4.50040506 C8.50040506,5.88134065 7.38093559,7.00081013 6,7.00081013 C4.61906441,7.00081013 3.49959494,5.88134065 3.49959494,4.50040506 C3.49959494,3.11946948 4.61906441,2 6,2 Z M11,3 C12.1045695,3 13,3.8954305 13,5 C13,6.1045695 12.1045695,7 11,7 C9.8954305,7 9,6.1045695 9,5 C9,3.8954305 9.8954305,3 11,3 Z"></path></svg>
+                        <svg class="icon" id="info" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g><g><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><circle cx="12" cy="8" r="1"></circle><path d="M12 10a1 1 0 0 0-1 1v5a1 1 0 0 0 2 0v-5a1 1 0 0 0-1-1z"></path></g></g></svg>
                         <svg class="icon" id="call" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19.44,13c-.22,0-.45-.07-.67-.12a9.44,9.44,0,0,1-1.31-.39,2,2,0,0,0-2.48,1l-.22.45a12.18,12.18,0,0,1-2.66-2,12.18,12.18,0,0,1-2-2.66L10.52,9a2,2,0,0,0,1-2.48,10.33,10.33,0,0,1-.39-1.31c-.05-.22-.09-.45-.12-.68a3,3,0,0,0-3-2.49h-3a3,3,0,0,0-3,3.41A19,19,0,0,0,18.53,21.91l.38,0a3,3,0,0,0,2-.76,3,3,0,0,0,1-2.25v-3A3,3,0,0,0,19.44,13Zm.5,6a1,1,0,0,1-.34.75,1.06,1.06,0,0,1-.82.25A17,17,0,0,1,4.07,5.22a1.09,1.09,0,0,1,.25-.82,1,1,0,0,1,.75-.34h3a1,1,0,0,1,1,.79q.06.41.15.81a11.12,11.12,0,0,0,.46,1.55l-1.4.65a1,1,0,0,0-.49,1.33,14.49,14.49,0,0,0,7,7,1,1,0,0,0,.76,0,1,1,0,0,0,.57-.52l.62-1.4a13.69,13.69,0,0,0,1.58.46q.4.09.81.15a1,1,0,0,1,.79,1Z"></path></svg>
-
-                        <p id="main-content-rooms-chat-top-right-video_call_toggle">Video Meeting</p>
                         <svg class="icon" id="video-camera" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.53,7.15a1,1,0,0,0-1,0L17,8.89A3,3,0,0,0,14,6H5A3,3,0,0,0,2,9v6a3,3,0,0,0,3,3h9a3,3,0,0,0,3-2.89l3.56,1.78A1,1,0,0,0,21,17a1,1,0,0,0,.53-.15A1,1,0,0,0,22,16V8A1,1,0,0,0,21.53,7.15ZM15,15a1,1,0,0,1-1,1H5a1,1,0,0,1-1-1V9A1,1,0,0,1,5,8h9a1,1,0,0,1,1,1Zm5-.62-3-1.5V11.12l3-1.5Z"></path></svg>
 
+                        <p id="main-content-rooms-chat-top-right-call_toggle">Call</p>
+                        <p id="main-content-rooms-chat-top-right-video_call_toggle">Video Meeting</p>
                         <p id="main-content-rooms-chat-top-right-info">Info</p>
-                        <svg class="icon" id="info" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g><g><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><circle cx="12" cy="8" r="1"></circle><path d="M12 10a1 1 0 0 0-1 1v5a1 1 0 0 0 2 0v-5a1 1 0 0 0-1-1z"></path></g></g></svg>
-
                     </div>
                 </div>
-                <div id="main-content-rooms-chat-center"></div>
+                <div id="main-content-rooms-chat-center">
+                    <div id="main-content-rooms-chat-center-left">
+                        <div id="main-content-rooms-chat-center-title">
+                            Files
+                        </div>
+                        <div id="main-content-rooms-chat-center-files"></div>
+                    </div>
+                    <div id="main-content-rooms-chat-center-right"></div>
+                </div>
                 <div id="main-content-rooms-chat-bottom">
                     <div id="main-content-rooms-chat-bottom-right">
                         <svg class="icon-active" id="emoji" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path fill="#212121" d="M8,2 C11.3137,2 14,4.68629 14,8 C14,11.3137 11.3137,14 8,14 C4.68629,14 2,11.3137 2,8 C2,4.68629 4.68629,2 8,2 Z M8,3 C5.23858,3 3,5.23858 3,8 C3,10.7614 5.23858,13 8,13 C10.7614,13 13,10.7614 13,8 C13,5.23858 10.7614,3 8,3 Z M9.86353,9.66654 C10.0477,9.46078 10.3638,9.44327 10.5696,9.62743 C10.7753,9.8116 10.7928,10.1277 10.6087,10.3335 C9.96851,11.0487 9.03663,11.4999949 8,11.4999949 C6.96337,11.4999949 6.03148,11.0487 5.39132,10.3335 C5.20716,10.1277 5.22467,9.8116 5.43043,9.62743 C5.6362,9.44327 5.95229,9.46078 6.13646,9.66654 C6.59494,10.1788 7.25963,10.4999949 8,10.4999949 C8.74037,10.4999949 9.40505,10.1788 9.86353,9.66654 Z M6.25,6.25 C6.66421,6.25 7,6.58579 7,7 C7,7.41421 6.66421,7.75 6.25,7.75 C5.83579,7.75 5.5,7.41421 5.5,7 C5.5,6.58579 5.83579,6.25 6.25,6.25 Z M9.75,6.25 C10.1642,6.25 10.5,6.58579 10.5,7 C10.5,7.41421 10.1642,7.75 9.75,7.75 C9.33579,7.75 9,7.41421 9,7 C9,6.58579 9.33579,6.25 9.75,6.25 Z"></path></svg>
@@ -60,7 +69,19 @@
                 </div>
             </div>
 
-            <div id="main-content-rooms-chat_info"></div>
+            <div id="main-content-rooms-chat_info">
+                <button id="main-content-rooms-chat_info-top-members-close">Back</button>
+                <div id="main-content-rooms-chat_info-top">
+                    <p id="main-content-rooms-chat_info-top-title">{{ room.title }}</p>
+                    <p id="main-content-rooms-chat_info-top-description">{{ room.description }}</p>
+                </div>
+                <ul id="main-content-rooms-chat_info-top-members">
+                    <p id="main-content-rooms-chat_info-top-members-title">Members</p>
+                    {% for user_room_member in room.members -%}
+                        <li class="main-content-rooms-chat_info-top-members__item">{{ user_room_member.user.username }}</li>
+                    {%- endfor %}
+                </ul>
+            </div>
 
         {%- endif %}
 
