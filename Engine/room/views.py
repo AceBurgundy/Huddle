@@ -1,8 +1,8 @@
-from flask import Blueprint, Response as FlaskResponse, jsonify, redirect, render_template, url_for
+from flask import Blueprint, Response as FlaskResponse, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required # type: ignore
 from werkzeug.wrappers.response import Response as WerkzeugResponse
 from Engine.room.forms import CreateRoomForm, JoinRoomForm
-from Engine.models import Notification, Room, UserRoom
+from Engine.models import Notification, Room, User, UserRoom
 from typing import Any, Callable, Dict, List, Optional
 from Engine import db, socket_io
 from random import choice
@@ -231,10 +231,13 @@ def join_room() -> FlaskResponse|WerkzeugResponse:
     a_room_member: Optional[UserRoom] = UserRoom.query.filter_by(user_id=current_user.id, room_id=room.id).first()
 
     if not a_room_member:
+
         notification = Notification(
-            message=f"{current_user.username} wants to join",
-            type=Notification.ALLOWED_TYPES.CONFIRM,
-            receiver=room.admin
+            message=f"{current_user.username} wants to join {room.title}",
+            type=Notification.ALLOWED_TYPES.JOIN,
+            sender=current_user,
+            receiver=room.admin,
+            room=room
         )
 
         db.session.add(notification)
@@ -244,3 +247,69 @@ def join_room() -> FlaskResponse|WerkzeugResponse:
         return jsonify({"message": "Request sent", "status": "success"})
 
     return redirect(url_for('index._index'))
+
+@room.post("/room/join/accept")
+@login_required
+def accept_join_room() -> FlaskResponse|WerkzeugResponse:
+    """
+    Joins a user to a room.
+    """
+    notification_id = request.form.get('notification_id')
+    notification_room_id = request.form.get('notification_room_id')
+
+    room: Optional[Room] = Room.query.get(notification_room_id)
+    notification: Optional[Notification] = Notification.query.get(notification_id)
+
+    if room is None:
+        return jsonify({'message': 'Room not found', 'status': 'error'})
+
+    if notification is None:
+        return jsonify({'message': 'Notification not found', 'status': 'error'})
+
+    # The one who sent the notification
+    # In this case, it is the user who wants to join the group
+    user: Optional[User] = User.query.get(notification.sender_id)
+
+    if user is None:
+        return jsonify({'message': 'User to join not found', 'status': 'error'})
+
+    accepted_admin_notification = Notification(
+        message=f"{user.username} has been accepted to join {room.title}",
+        type=Notification.ALLOWED_TYPES.STANDARD,
+        sender=room.admin,
+        receiver=room.admin,
+        room=room
+    )
+
+    accepted_user_notification = Notification(
+        message=f"You have been accepted to {room.title}",
+        type=Notification.ALLOWED_TYPES.STANDARD,
+        receiver=user,
+        sender=room.admin,
+        room=room
+    )
+
+    # Adding the new user to the room
+    new_user_room = UserRoom(user, room)
+
+    db.session.add(new_user_room)
+    db.session.add(accepted_admin_notification)
+    db.session.add(accepted_user_notification)
+
+    # Delete all request to join notifications including the duplicated ones.
+    notifications_to_delete = Notification.query.filter_by(message=notification.message).all()
+
+    for notification in notifications_to_delete:
+        db.session.delete(notification)
+
+    db.session.commit()
+
+    socket_io.emit('update_notification')
+
+    # refresh link must be used if the user requested to join when he's not at room.open_room html else get only the code to add the data
+    return jsonify({
+        "message": "Request approved",
+        "status": "success",
+        "refresh_link": url_for('index._index'),
+        "room_data_route": url_for('room.room_data', room_code=room.code)
+    })
