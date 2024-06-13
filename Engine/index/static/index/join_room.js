@@ -1,9 +1,10 @@
-import makeToastNotification, {triggerWhenElementExist} from '../../../static/helper.js';
+import makeToastNotification, {element, triggerWhenElementExist} from '../../../static/helper.js';
 
 triggerWhenElementExist('#room-options-join', 'submit', event => {
   event.preventDefault();
 
   const roomCode = element('#room-options-join-input');
+  const csrfInput = element('#csrf_token');
   const code = roomCode.value.trim();
 
   if (roomCode.value === '') {
@@ -20,6 +21,10 @@ triggerWhenElementExist('#room-options-join', 'submit', event => {
     makeToastNotification('Only XXX-XXX-XXX or XXXXXXXXX format is accepted');
     return;
   }
+
+  const formData = new FormData();
+  formData.append('csrf_token', csrfInput.value);
+  formData.append('code', roomCode.value);
 
   fetch('/room/join', {
     method: 'POST',
