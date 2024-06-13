@@ -158,3 +158,19 @@ export const triggerWhenElementsExist = (elementsOrSelectors, eventType, callbac
     triggerWhenElementExist(item, eventType, callback)
   );
 };
+
+export const allowedToFetch = () => {
+  const noNotif = ['/login', '/register'];
+  return !noNotif.includes(window.location.pathname);
+};
+
+export const isLoggedIn = async () => {
+  try {
+    const response = await fetch('/is_logged_in');
+    const data = await response.json();
+
+    return data.logged_in;
+  } catch (error) {
+    console.error(error);
+  }
+};
