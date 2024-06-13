@@ -1,4 +1,4 @@
-import {element, triggerWhenElementsExist} from '../../../static/helper.js';
+import makeToastNotification, {element, triggerWhenElementExist, triggerWhenElementsExist} from '../../../static/helper.js';
 
 const notificationList = element('#notification-list');
 
@@ -73,44 +73,70 @@ export const updateNotifications = async () => {
  * Depending on the type of the notification, it includes either confirmation buttons or a message.
  *
  * @function makeNewNotification
- * @param {string} title - The title of the notification.
- * @param {string} message - The message content of the notification.
- * @param {string} type - The type of the notification. If the type is 'Confirm', confirmation buttons are included.
+ * @param {object} notification - The notification object.
+ * @param {string} notification.id - The id of the notification.
+ * @param {string} notification.title - The title of the notification.
+ * @param {string} notification.message - The message content of the notification.
+ * @param {string} notification.type - The type of the notification. If the type is 'Confirm', confirmation buttons are included.
+ * @param {string} notification.roomId - The id of the room the notification is for.
  * @return {string} An HTML string representing the notification list item.
  */
-function makeNewNotification(title, message, type) {
+export const makeNewNotification = notification => {
   return /* html */`
-    <li class="notification-list__item">
-      <p class="notification-list__item__title">${title}</p>
+    <li class="notification-list__item" data-id="${notification.id}" data-type="${notification.type}" data-room-id="${notification.roomId}">
       ${
-        type == 'Confirm' ? /* html */`
+        notification.type === 'join' ? /* html */`
+          <p class="notification-list__item__message">${notification.message}</p>
+
           <div class="notification-list__item__buttons">
             <button class="notification-list__item__buttons__approve">Approve</button>
             <button class="notification-list__item__buttons__deny">Deny</button>
           </div>
         ` : /* html */`
-          <p class="notification-list__item__message">${message}</p>
+          <p class="notification-list__item__message">${notification.message}</p>
         `
 }
     </li>
   `;
 };
 
-/**
- * Asynchronously fetches notifications from the server and logs them to the console.
- * If an error occurs during the fetch operation, it logs the error to the console.
- *
- * @async
- * @function updateNotifications
- * @return {Promise<void>} A promise that resolves when the notifications have been fetched and logged, or rejects if an error occurs.
- */
-async function updateNotifications() {
-  fetch('/notifications')
-      .then(response => response.json())
-      .then(notifications => {
-        console.log(notifications);
+triggerWhenElementExist('#notification-list', 'click', event => {
+  if (event.target.tagName !== 'BUTTON') return;
+  const isApprove = event.target.classList.contains('notification-list__item__buttons__approve');
+  const isDeny = event.target.classList.contains('notification-list__item__buttons__deny');
+
+  if (isApprove || isDeny) {
+    const notification = event.target.parentElement.parentElement;
+    const message = notification.firstElementChild;
+
+    if (notification.dataset.type === 'join') {
+      const formData = new FormData();
+      formData.append('notification_id', notification.dataset.id);
+      formData.append('notification_room_id', notification.dataset.roomId);
+
+      fetch(`/room/join/${isApprove ? 'accept' : 'decline'}`, {
+        method: 'POST',
+        body: formData
       })
-      .catch(error => {
-        console.log(error);
-      });
-}
+          .then(response => response.json())
+          .then(response => {
+            if (response.status === 'success') {
+              console.log(response);
+              makeToastNotification(response.message);
+              const notifications = element('#notification-list');
+
+              Array.from(notifications.children).forEach(notification => {
+                if (notification.textContent === message) notification.remove();
+              });
+            } else {
+              console.log(response);
+              makeToastNotification(response.message);
+            }
+          })
+          .catch(error => {
+            console.log(error);
+          });
+    }
+  }
+});
+
