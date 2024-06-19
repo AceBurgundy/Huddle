@@ -107,7 +107,6 @@ triggerWhenElementExist('#notification-list', 'click', event => {
 
   if (isApprove || isDeny) {
     const notification = event.target.parentElement.parentElement;
-    const message = notification.firstElementChild;
 
     if (notification.dataset.type === 'join') {
       const formData = new FormData();
@@ -121,13 +120,18 @@ triggerWhenElementExist('#notification-list', 'click', event => {
           .then(response => response.json())
           .then(response => {
             if (response.status === 'success') {
-              console.log(response);
               makeToastNotification(response.message);
-              const notifications = element('#notification-list');
 
-              Array.from(notifications.children).forEach(notification => {
-                if (notification.textContent === message) notification.remove();
-              });
+              if (isApprove) {
+                const currentPathArray = window.location.pathname.split('');
+                const onRoomsPage = currentPathArray.includes('room') && currentPathArray.includes('open');
+
+                if (onRoomsPage) {
+                  window.location.href = response.redirect_link;
+                } else {
+                  makeToastNotification(`Open 'huddle' icon to go back to your rooms`);
+                }
+              }
             } else {
               console.log(response);
               makeToastNotification(response.message);
