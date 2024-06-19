@@ -117,7 +117,7 @@ class Room(BaseModel):
 
     def __init__(self, code: str, title: str, description: str, admin: User) -> None:
         """
-        A new constructor that accepts the room code initially.
+        A new constructor that provides data to the attributes initially.
         """
         self.code = code
         self.title = title
@@ -140,6 +140,13 @@ class RoomAnnouncement(BaseModel, UserMixin):
 
     text = db.Column(db.Text)
     room_id = db.Column(db.Integer, db.ForeignKey('room.id', ondelete='CASCADE'), nullable=False)
+
+    def __init__(self, text, room_id) -> None:
+        """
+        A new constructor that provides data to the attributes initially.
+        """
+        self.text = text
+        self.room_id = room_id
 
     def __repr__(self) -> str:
         """
