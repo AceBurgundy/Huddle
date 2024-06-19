@@ -1,4 +1,4 @@
-from flask import Response as FlaskResponse, redirect, render_template, request, url_for, Blueprint
+from flask import Response as FlaskResponse, redirect, render_template, request, session, url_for, Blueprint
 from werkzeug.wrappers.response import Response as WerkzeugResponse
 from flask_login import current_user, login_required # type: ignore
 from Engine.room.forms import CreateRoomForm, JoinRoomForm
