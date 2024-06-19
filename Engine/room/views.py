@@ -1,8 +1,9 @@
-from flask import Blueprint, Response as FlaskResponse, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, Response as FlaskResponse, jsonify, redirect, render_template, request, session, url_for
+from Engine.models import Notification, Room, RoomAnnouncement, User, UserRoom
 from flask_login import current_user, login_required # type: ignore
 from werkzeug.wrappers.response import Response as WerkzeugResponse
+from flask_socketio import emit, join_room, leave_room, send # type: ignore
 from Engine.room.forms import CreateRoomForm, JoinRoomForm
-from Engine.models import Notification, Room, User, UserRoom
 from typing import Any, Callable, Dict, List, Optional
 from Engine import db, socket_io
 from random import choice
@@ -63,6 +64,53 @@ def open_room(room_code: str) -> FlaskResponse|str:
         page_title=page_title,
         image_file=image_file
     )
+
+@socket_io.on('join')
+def on_join(data) -> None:
+    """
+    Joins a room using Flask-SocketIO
+    """
+    room_code = data['room']
+
+    # Get the current room the user is in from the session
+    current_room_code = session.get('current_room_code')
+
+    if current_room_code:
+        if current_room_code != room_code:
+            leave_room(current_room_code)
+            emit('left', f"{current_user.username} left the room {current_room_code}", to=current_room_code)
+
+    join_room(room_code)
+    emit('joined', f"{current_user.username} joined the room {room_code}", to=room_code)
+
+    # Update the session to the new room
+    session['current_room_code'] = room_code
+
+@socket_io.on('new-alert')
+def new_alert(data) -> None:
+    """
+    Adds and broadcast new messages added to a room.
+    """
+    message: Optional[str] = data.get('message', None)
+    room_code: Optional[str] = data.get('roomCode', None)
+
+    if message is None:
+
+        send('Alert is missing')
+        return
+
+    room: Optional[Room] = Room.query.filter_by(code=room_code).first()
+
+    if room is None:
+
+        send('Room to send alert to is not found')
+        return
+
+    room_annoncement: RoomAnnouncement = RoomAnnouncement(message, room.id)
+    emit('alert', message, to=room.code)
+
+    db.session.add(room_annoncement)
+    db.session.commit()
 
 @room.get("/rooms")
 @login_required
@@ -211,7 +259,7 @@ def get_rooms() -> FlaskResponse:
 
 @room.post("/room/join")
 @login_required
-def join_room() -> FlaskResponse|WerkzeugResponse:
+def room_join() -> FlaskResponse|WerkzeugResponse:
     """
     Joins a user to a room.
     """
@@ -310,6 +358,114 @@ def accept_join_room() -> FlaskResponse|WerkzeugResponse:
     return jsonify({
         "message": "Request approved",
         "status": "success",
-        "refresh_link": url_for('index._index'),
-        "room_data_route": url_for('room.room_data', room_code=room.code)
+        "redirect_link": url_for('room.open_room', room_code=room.code)
+    })
+
+@room.post("/room/<room_code>/leave")
+@login_required
+def leave(room_code) -> FlaskResponse|WerkzeugResponse:
+    """
+    Removes a user from a room
+    """
+    room = Room.query.filter_by(code=room_code).first()
+
+    if not room:
+
+        return jsonify({
+            "status": "error",
+            "message": "Cannot leave room. Room cannot be found"
+        })
+
+    user_room = UserRoom.query.filter_by(user=current_user, room=room).first()
+
+    if not user_room:
+
+        return jsonify({
+            "status": "error",
+            "message": "Cannot leave room. User's connection to the room cannot be found"
+        })
+
+    db.session.delete(user_room)
+    db.session.commit()
+
+    # Delete room if the user who left is the only user
+    if len(room.members) <= 0:
+        db.session.delete(room)
+
+    else:
+        # Set the next user if not the previous left user to be the new admin
+        user_index: int = 0
+
+        while True:
+
+            room_member = room.members[user_index].user
+
+            if room_member.id != current_user.id:
+                room.admin = room_member
+                break
+            else:
+                user_index += 1
+
+    db.session.commit()
+    still_has_rooms: bool = len(current_user.rooms) > 0
+    return redirect(url_for('room.open_room', room_code=current_user.rooms[-1].room.code) if still_has_rooms else url_for('index._index'))
+
+@room.post("/room/join/decline")
+@login_required
+def decline_join_room() -> FlaskResponse|WerkzeugResponse:
+    """
+    Joins a user to a room.
+    """
+    notification_id = request.form.get('notification_id')
+    notification_room_id = request.form.get('notification_room_id')
+
+    room: Optional[Room] = Room.query.get(notification_room_id)
+    notification: Optional[Notification] = Notification.query.get(notification_id)
+
+    if room is None:
+        return jsonify({'message': 'Room not found', 'status': 'error'})
+
+    if notification is None:
+        return jsonify({'message': 'Notification not found', 'status': 'error'})
+
+    # The one who sent the notification
+    # In this case, it is the user who wants to join the group
+    user: Optional[User] = User.query.get(notification.sender_id)
+
+    if user is None:
+        return jsonify({'message': 'User to join not found', 'status': 'error'})
+
+    accepted_admin_notification: Notification = Notification(
+        message=f"{user.username} has been declined from joining {room.title}",
+        type=Notification.ALLOWED_TYPES.STANDARD,
+        sender=room.admin,
+        receiver=room.admin,
+        room=room
+    )
+
+    accepted_user_notification: Notification = Notification(
+        message=f"You have been declined from joining {room.title}",
+        type=Notification.ALLOWED_TYPES.STANDARD,
+        receiver=user,
+        sender=room.admin,
+        room=room
+    )
+
+    db.session.add(accepted_admin_notification)
+    db.session.add(accepted_user_notification)
+
+    # Delete all request to join notifications including the duplicated ones.
+    notifications_to_delete: List[Notification] = Notification.query.filter_by(message=notification.message).all()
+
+    for notification in notifications_to_delete:
+        db.session.delete(notification)
+
+    db.session.commit()
+
+    socket_io.emit('update_notification')
+
+    # refresh link must be used if the user requested to join when he's not at room.open_room html else get only the code to add the data
+    return jsonify({
+        "message": "Request declined. See notification",
+        "status": "success",
     })
