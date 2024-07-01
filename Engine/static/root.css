@@ -64,6 +64,10 @@ svg {
     font-size: 1.5vw;
 }
 
+.hidden {
+    display: none;
+}
+
 #form-background{
     position: fixed;
     width: 100dvw;
